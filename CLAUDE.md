@@ -18,6 +18,7 @@ src/
 ├── plugin.ts         # the Plugin fn — resolves config, registers tool + auth + chat.headers
 ├── tool.ts           # the `apify` tool(): Zod args + the agent-facing description + dispatch
 ├── client.ts         # createApifyClient (telemetry headers), resolveBaseUrl (SSRF guard), normalizeSecretInput
+├── auth-store.ts     # readStoredApiToken — reads `kilo auth login` creds from <xdgData>/kilo/auth.json
 ├── config.ts         # resolveConfig — token precedence + enabled resolution
 ├── content.ts        # TERMINAL_STATUSES, MAX_RESULT_CHARS, truncateResults, wrapExternalContent
 └── actions/
@@ -46,6 +47,8 @@ These deviate from or resolve open items in the design/plan docs — read before
 
 1. **`ctx.ask` is omitted.** The plugin SDK's `ToolContext.ask` returns an `effect` `Effect` that an `async execute` can't cleanly run (verified in `kilocode/packages/plugin/src/tool.ts:20`). Permission gating is left to the host; per-action permission tokens would be informational only. This was the plan's flagged open item.
 2. **Auth hook is registered even when disabled.** The plan said "disabled → register nothing." We register **nothing tool-facing** when there's no token, but still expose the `auth` method so a token can be *added* through Kilo's UI (otherwise there's a chicken-and-egg: no token → no auth UI → can't add a token). The `tool` is still gated on a resolved token.
+
+7. **The stored `kilo auth login` token is read directly, not via the hook's value bag.** A token entered with `kilo auth login --provider apify` is persisted to `<xdgData>/kilo/auth.json`, but the host only invokes a plugin auth hook's `loader` (and routes its returned bag) when building a **model provider** whose id matches — guard at `kilocode/packages/opencode/src/provider/provider.ts` (`x.auth?.provider === providerID && x.auth.loader`). "apify" is a tool plugin, not a model provider, so that loader never runs and `resolveConfig`'s `authToken` slot would always be empty. `auth-store.ts:readStoredApiToken` reads the credential straight from the auth store and `plugin.ts` feeds it into that slot, so **`kilo auth login` alone enables the tool** (it occupies the top precedence slot: stored login > options > env). The path mirrors the host: `<XDG_DATA_HOME | ~/.local/share>/kilo/auth.json`, value `{ type: "api", key }`. Requires a Kilo restart after login (plugins resolve config once at startup).
 3. **`z.record` needs an explicit key type.** The published `@kilocode/plugin` bundles a zod build where `z.record(value)` is rejected — use `z.record(z.string(), z.any())`.
 4. **`makeApifyTool` has an explicit `: ToolDefinition` return annotation.** Without it, `tsc` declaration emit leaks a non-portable path into the SDK's nested `node_modules/zod` (TS2742).
 5. **`apify-client` is a real dependency; `@kilocode/plugin` is a devDependency only** — the host provides the plugin SDK at load time.

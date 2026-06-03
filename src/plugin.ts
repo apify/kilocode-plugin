@@ -2,6 +2,7 @@ import type { ApifyClient } from "apify-client"
 import type { Plugin, Hooks } from "@kilocode/plugin"
 import { resolveConfig, type ApifyPluginOptions } from "./config.js"
 import { createApifyClient, normalizeSecretInput } from "./client.js"
+import { readStoredApiToken } from "./auth-store.js"
 import { makeApifyTool } from "./tool.js"
 
 // Bumped manually; mirrors package.json. Used for the attribution header.
@@ -10,13 +11,19 @@ const PLUGIN_VERSION = "0.1.0"
 /**
  * The Apify plugin (PLUGIN-DESIGN.md, PLUGIN_PLAN.md).
  *
- * Resolves an Apify API token from the config tuple / env, registers the single
- * `apify` tool plus a native Kilo auth method ("Apify API Token") and an
- * attribution header. If no token is configured and `enabled` is not forced on,
- * the plugin registers nothing — so the agent never sees a tool that would fail.
+ * Resolves an Apify API token from a token stored via `kilo auth login
+ * --provider apify` / the config tuple / env, registers the single `apify` tool
+ * plus a native Kilo auth method ("Apify API Token") and an attribution header.
+ * If no token is configured and `enabled` is not forced on, the plugin registers
+ * nothing — so the agent never sees a tool that would fail.
  */
 export const server: Plugin = async (_input, options): Promise<Hooks> => {
-  const cfg = resolveConfig(options as ApifyPluginOptions | undefined)
+  // A token entered via `kilo auth login --provider apify` lands in Kilo's auth
+  // store, not in our hook's value bag (the host only delivers that bag to model
+  // providers — see auth-store.ts). Read it ourselves so login alone enables the
+  // tool. It takes the `authToken` precedence slot: stored login > options > env.
+  const storedToken = await readStoredApiToken("apify")
+  const cfg = resolveConfig(options as ApifyPluginOptions | undefined, storedToken)
 
   // Native auth hook: lets the token be entered through Kilo's auth UI and maps
   // a stored API key into a value bag (mirrors kilo-gateway's plugin loader).

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "plugin": [
+    "list",
+    [
+      "/Users/gokdenizkaymak/apify/kilocode-folder/kilocode-plugin",
+      {
+        "token": "{env:APIFY_TOKEN}"
+      }
+    ]
+  ]
+}

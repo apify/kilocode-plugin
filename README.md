@@ -35,11 +35,17 @@ kilo plugin @apify/kilocode-plugin
 
 The plugin resolves the token in this order:
 
-1. **Kilo auth UI** — the plugin registers an **"Apify API Token"** auth method, so you can enter the key through Kilo's native auth flow.
+1. **Kilo auth login** — the plugin registers an **"Apify API Token"** auth method, so you can store the key through Kilo's native auth flow:
+
+   ```bash
+   kilo auth login --provider apify   # paste your apify_api_… token
+   ```
+
+   This alone is enough — login enables the tool on the next launch, with no config or env var needed.
 2. **Config** — `{ "token": "..." }` (or `{ "apiKey": "..." }`) in the `kilo.jsonc` plugin entry.
 3. **Environment** — `APIFY_API_KEY` or `APIFY_TOKEN`.
 
-If no token is found, the plugin registers **no tool** (the agent never sees a tool that would fail).
+If no token is found, the plugin registers **no tool** (the agent never sees a tool that would fail). After running `kilo auth login`, restart Kilo so the plugin re-reads the credential.
 
 ## The `apify` tool
 
