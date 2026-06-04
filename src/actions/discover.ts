@@ -2,7 +2,7 @@ import type { ApifyClient } from "apify-client"
 import { asOutput, type ActionResult } from "./types.js"
 
 /**
- * `discover` — the agent's "I don't know yet" verb (PLUGIN-DESIGN.md §4).
+ * `discover` — the agent's "I don't know yet" verb.
  *
  * Two read-only lookups share one action because they share a goal: learn
  * enough to call `start`.

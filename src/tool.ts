@@ -6,9 +6,8 @@ import { collect } from "./actions/collect.js"
 import type { RunRef } from "./actions/types.js"
 
 /**
- * The single agent-callable `apify` tool. The description below IS the contract
- * with the model (PLUGIN-DESIGN.md §7) — it's what the LLM reads when deciding
- * whether and how to call this tool. Keep it flat and explicit.
+ * The single agent-callable `apify` tool. The description below is what the
+ * LLM reads when deciding whether and how to call this tool.
  */
 const DESCRIPTION = `Run any of Apify's 20,000+ web-scraping/automation Actors and bring back the results.
 

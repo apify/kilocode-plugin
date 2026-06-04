@@ -1,7 +1,7 @@
 import { ApifyClient } from "apify-client"
 
 /**
- * Apify client construction and secret hygiene (see PLUGIN-DESIGN.md §8, §11).
+ * Apify client construction and secret hygiene.
  */
 
 const APIFY_BASE_URL = "https://api.apify.com"

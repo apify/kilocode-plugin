@@ -4,25 +4,16 @@ import path from "path"
 import { normalizeSecretInput } from "./client.js"
 
 /**
- * Read a token that the user stored via `kilo auth login --provider <id>`.
+ * Read an API token stored by the Kilo CLI auth command.
  *
- * Why this exists: the `auth` hook this plugin registers (see plugin.ts) is the
- * SDK mechanism for *model-provider* credentials — the host only ever invokes a
- * hook's `loader` when it builds a provider whose id matches
- * (kilocode/packages/opencode/src/provider/provider.ts: the
- * `x.auth?.provider === providerID && x.auth.loader` guard). "apify" is a tool
- * plugin, not a model provider, so that loader is never called and its value
- * bag never reaches us. To honor `kilo auth login --provider apify` we therefore
- * read the stored credential straight from Kilo's auth store.
+ * `kilo auth login --provider apify` writes `{ type: "api", key }` to
+ * `<XDG_DATA_HOME>/kilo/auth.json`. This reads that file directly because the
+ * plugin's auth hook loader (which would normally surface the value) is only
+ * invoked for model providers, not tool plugins. Direct file access lets
+ * `kilo auth login` alone enable the tool — no config or env var needed.
  *
- * Location mirrors the host exactly:
- *   - data dir:  `<XDG_DATA_HOME | ~/.local/share>/kilo`
- *       (kilocode/packages/core/src/global.ts → `Path.data`, app = "kilo")
- *   - file:      `auth.json`, keyed by provider id, value `{ type: "api", key }`
- *       (kilocode/packages/opencode/src/auth/index.ts → `file` + `Api`)
- *
- * Returns "" when the file is absent/unreadable/malformed or holds no api-type
- * credential for `provider`, so callers treat it exactly like "no token".
+ * Returns "" when the file is absent, unreadable, malformed, or holds no api
+ * credential for the provider.
  */
 export async function readStoredApiToken(provider: string): Promise<string> {
   let raw: string
@@ -51,15 +42,7 @@ export async function readStoredApiToken(provider: string): Promise<string> {
   return normalizeSecretInput(key)
 }
 
-/**
- * `<XDG_DATA_HOME | ~/.local/share>/kilo/auth.json`.
- *
- * `xdg-basedir` (the lib Kilo uses) resolves `xdgData` to `$XDG_DATA_HOME` or
- * `~/.local/share` on every platform, with no Windows special-case — we mirror
- * that here so we never drift from where the host wrote the file. Newlines are
- * stripped for the same reason Kilo strips them (a trailing newline on `$HOME`
- * or `$XDG_DATA_HOME` would otherwise corrupt the path).
- */
+/** Resolves to `<XDG_DATA_HOME | ~/.local/share>/kilo/auth.json`. */
 export function authFilePath(): string {
   const clean = (p: string) => p.replace(/[\r\n]+/g, "").trim()
   const dataHome =

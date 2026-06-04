@@ -1,7 +1,7 @@
 import { normalizeSecretInput } from "./client.js"
 
 /**
- * Config resolution (see PLUGIN-DESIGN.md §9).
+ * Config resolution.
  *
  * Config arrives from three places, merged here into a single resolved shape:
  *  - the `["@apify/kilocode-plugin", { ... }]` options tuple in `kilo.jsonc`

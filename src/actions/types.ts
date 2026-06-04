@@ -2,7 +2,7 @@
 
 /**
  * The smallest piece of state an agent needs to come back later and pick up a
- * run's data — see PLUGIN-DESIGN.md §2 ("run reference").
+ * run's data.
  */
 export interface RunRef {
   runId: string

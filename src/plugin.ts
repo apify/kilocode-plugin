@@ -4,12 +4,10 @@ import { resolveConfig, type ApifyPluginOptions } from "./config.js"
 import { createApifyClient, normalizeSecretInput } from "./client.js"
 import { readStoredApiToken } from "./auth-store.js"
 import { makeApifyTool } from "./tool.js"
-
-// Bumped manually; mirrors package.json. Used for the attribution header.
-const PLUGIN_VERSION = "0.1.0"
+import { version } from "../package.json" with { type: "json" }
 
 /**
- * The Apify plugin (PLUGIN-DESIGN.md, PLUGIN_PLAN.md).
+ * The Apify plugin for Kilo Code.
  *
  * Resolves an Apify API token from a token stored via `kilo auth login
  * --provider apify` / the config tuple / env, registers the single `apify` tool
@@ -18,15 +16,9 @@ const PLUGIN_VERSION = "0.1.0"
  * nothing — so the agent never sees a tool that would fail.
  */
 export const server: Plugin = async (_input, options): Promise<Hooks> => {
-  // A token entered via `kilo auth login --provider apify` lands in Kilo's auth
-  // store, not in our hook's value bag (the host only delivers that bag to model
-  // providers — see auth-store.ts). Read it ourselves so login alone enables the
-  // tool. It takes the `authToken` precedence slot: stored login > options > env.
   const storedToken = await readStoredApiToken("apify")
   const cfg = resolveConfig(options as ApifyPluginOptions | undefined, storedToken)
 
-  // Native auth hook: lets the token be entered through Kilo's auth UI and maps
-  // a stored API key into a value bag (mirrors kilo-gateway's plugin loader).
   const auth: Hooks["auth"] = {
     provider: "apify",
     async loader(getAuth) {
@@ -37,13 +29,10 @@ export const server: Plugin = async (_input, options): Promise<Hooks> => {
     methods: [{ type: "api", label: "Apify API Token" }],
   }
 
-  // Disabled (no token and not force-enabled): register nothing tool-facing,
-  // but still expose the auth method so a token can be added later.
   if (!cfg.enabled) {
     return { auth }
   }
 
-  // Lazily build + cache the client from the resolved token.
   let client: ApifyClient | undefined
   const getClient = (): ApifyClient => {
     if (!client) client = createApifyClient(cfg.apiKey, cfg.baseUrl)
@@ -55,9 +44,8 @@ export const server: Plugin = async (_input, options): Promise<Hooks> => {
       apify: makeApifyTool(getClient),
     },
     auth,
-    // Attribution header so Apify can distinguish AI-agent integration traffic.
     "chat.headers": async (_in, output) => {
-      output.headers["Apify-User-Agent"] = `apify-kilocode-plugin/${PLUGIN_VERSION}`
+      output.headers["Apify-User-Agent"] = `apify-kilocode-plugin/${version}`
     },
   }
 }

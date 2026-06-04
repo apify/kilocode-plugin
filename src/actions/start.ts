@@ -2,7 +2,7 @@ import type { ApifyClient } from "apify-client"
 import { asOutput, type ActionResult, type RunRef } from "./types.js"
 
 /**
- * `start` — launch an Actor run and return immediately (PLUGIN-DESIGN.md §5).
+ * `start` — launch an Actor run and return immediately.
  *
  * Deliberately does NO per-Actor input validation: Apify validates the input
  * against the Actor's schema and returns a structured error. Re-implementing

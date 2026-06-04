@@ -1,9 +1,11 @@
+import { ACTOR_JOB_TERMINAL_STATUSES } from "@apify/consts"
+
 /**
  * Defensive output handling for data harvested from Apify Actors.
  *
  * Dataset rows are scraped from the open web and must be treated as adversarial
- * input (see PLUGIN-DESIGN.md §6 and §11). Two protections are applied before
- * any scraped text reaches the agent's context:
+ * input. Two protections are applied before any scraped text reaches the
+ * agent's context:
  *
  *  1. `truncateResults` — hard-caps the payload size so a huge dataset can't
  *     blow up the context window.
@@ -12,13 +14,7 @@
  *     (prompt-injection defense).
  */
 
-/** Run statuses that mean the run has stopped — nothing more will happen. */
-export const TERMINAL_STATUSES = new Set([
-  "SUCCEEDED",
-  "FAILED",
-  "ABORTED",
-  "TIMED-OUT",
-])
+export const TERMINAL_STATUSES = new Set(ACTOR_JOB_TERMINAL_STATUSES)
 
 /** Hard cap on the characters of dataset JSON returned to the agent. */
 export const MAX_RESULT_CHARS = 50_000

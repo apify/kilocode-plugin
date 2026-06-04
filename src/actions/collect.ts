@@ -8,7 +8,7 @@ import {
 } from "../content.js"
 
 /**
- * `collect` — poll a batch of runs and harvest finished ones (PLUGIN-DESIGN.md §6).
+ * `collect` — poll a batch of runs and harvest finished ones.
  *
  * Polling lives in the AGENT loop, not here: each call checks status once and
  * returns. The agent watches `allDone` and calls again for `pending` runs.
