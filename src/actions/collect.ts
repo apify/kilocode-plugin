@@ -30,7 +30,13 @@ async function collectOne(
   | { kind: "error"; entry: ErrorEntry }
 > {
   const run = (await client.run(ref.runId).get()) as Record<string, any> | undefined
-  const status: string = run?.status ?? "UNKNOWN"
+  if (!run) {
+    return { kind: "error", entry: { ...ref, error: `Run ${ref.runId} not found — it may have been deleted or the ID is stale.` } }
+  }
+  const status = run.status
+  if (!status) {
+    return { kind: "error", entry: { ...ref, error: `Run ${ref.runId} returned no status — the run may be in an invalid state.` } }
+  }
 
   if (!TERMINAL_STATUSES.has(status)) {
     return { kind: "pending", entry: { ...ref, status, pending: true } }

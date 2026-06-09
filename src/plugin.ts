@@ -1,10 +1,10 @@
 import type { ApifyClient } from "apify-client"
 import type { Plugin, Hooks } from "@kilocode/plugin"
 import { resolveConfig, type ApifyPluginOptions } from "./config.js"
-import { createApifyClient, normalizeSecretInput } from "./client.js"
+import { createApifyClient } from "./client.js"
 import { readStoredApiToken } from "./auth-store.js"
 import { makeApifyTool } from "./tool.js"
-import { version } from "../package.json" with { type: "json" }
+import pkg from "../package.json" with { type: "json" }
 
 /**
  * The Apify plugin for Kilo Code.
@@ -19,13 +19,13 @@ export const server: Plugin = async (_input, options): Promise<Hooks> => {
   const storedToken = await readStoredApiToken("apify")
   const cfg = resolveConfig(options as ApifyPluginOptions | undefined, storedToken)
 
+  // The auth method exposes "Apify API Token" in Kilo's auth UI so a token can
+  // be entered via `kilo auth login --provider apify`. There is no loader here
+  // because Kilo's host only invokes plugin auth loaders for model providers, not
+  // tool plugins. Token resolution is handled by readStoredApiToken (direct file
+  // read of the auth store), not through this hook's value bag.
   const auth: Hooks["auth"] = {
     provider: "apify",
-    async loader(getAuth) {
-      const a = await getAuth()
-      if (a?.type === "api") return { apifyToken: normalizeSecretInput(a.key) }
-      return {}
-    },
     methods: [{ type: "api", label: "Apify API Token" }],
   }
 
@@ -45,7 +45,7 @@ export const server: Plugin = async (_input, options): Promise<Hooks> => {
     },
     auth,
     "chat.headers": async (_in, output) => {
-      output.headers["Apify-User-Agent"] = `apify-kilocode-plugin/${version}`
+      output.headers["Apify-User-Agent"] = `apify-kilocode-plugin/${pkg.version}`
     },
   }
 }

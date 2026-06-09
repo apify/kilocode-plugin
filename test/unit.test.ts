@@ -60,6 +60,11 @@ describe("client helpers", () => {
     expect(resolveBaseUrl("https://api.apify.com/v2")).toBe("https://api.apify.com/v2")
     expect(() => resolveBaseUrl("https://evil.example.com")).toThrow(/Invalid Apify base URL/)
   })
+
+  it("resolveBaseUrl rejects subdomain bypass (api.apify.com.evil.com)", () => {
+    expect(() => resolveBaseUrl("https://api.apify.com.evil.com")).toThrow(/Invalid Apify base URL/)
+    expect(() => resolveBaseUrl("https://api.apify.com.evil.com/v2")).toThrow(/Invalid Apify base URL/)
+  })
 })
 
 describe("config resolution", () => {
@@ -113,7 +118,7 @@ describe("discover action", () => {
     expect(res.output).toContain("PAY_PER_RESULT")
   })
 
-  it("Mode B (schema) returns inputSchema, readme and a start tip", async () => {
+  it("Mode B (schema) returns inputSchema and wrapped readme with a start tip", async () => {
     const client = fakeClient({
       actor: () => ({
         defaultBuild: async () => ({
@@ -134,6 +139,27 @@ describe("discover action", () => {
     expect(parsed.inputSchema.properties.searchStringsArray).toBeDefined()
     expect(parsed.tip).toContain("action='start'")
     expect(parsed.tip).toContain("compass~crawler-google-places")
+    expect(parsed.readme).toContain("<<<EXTERNAL_UNTRUSTED_CONTENT>>>")
+    expect(parsed.readme).toContain("Source: apify:compass~crawler-google-places")
+    expect(parsed.readme).toContain("How to use this actor")
+    expect(parsed.readme).toContain("<<<END_EXTERNAL_UNTRUSTED_CONTENT>>>")
+  })
+
+  it("Mode B leaves readme empty when there is no readme", async () => {
+    const client = fakeClient({
+      actor: () => ({
+        defaultBuild: async () => ({
+          get: async () => ({
+            actorDefinition: {
+              name: "foo",
+              username: "bar",
+            },
+          }),
+        }),
+      }),
+    })
+    const res = await discover(client, { actorId: "bar~foo" })
+    expect(JSON.parse(res.output).readme).toBe("")
   })
 
   it("errors when neither query nor actorId is given", async () => {
@@ -225,6 +251,49 @@ describe("collect action", () => {
     expect(parsed.completed).toHaveLength(1)
     expect(parsed.errors).toHaveLength(1)
     expect(parsed.errors[0].error).toContain("network down")
+  })
+
+  it("deleted/stale runs are treated as errors, not pending (no infinite loop)", async () => {
+    const client = collectClient(
+      {
+        existing: { status: "SUCCEEDED", defaultDatasetId: "dsOk" },
+        // "missing" run — get() returns undefined (simulating deleted run)
+        missing: undefined as any,
+      },
+      { dsOk: [{ x: 1 }] },
+    )
+    const res = await collect(client, {
+      runs: [
+        { runId: "existing", actorId: "a", datasetId: "dsOk" },
+        { runId: "missing", actorId: "a", datasetId: "dsX" },
+      ],
+    })
+    const parsed = JSON.parse(res.output)
+    expect(parsed.allDone).toBe(true)
+    expect(parsed.completed).toHaveLength(1)
+    expect(parsed.errors).toHaveLength(1)
+    expect(parsed.errors[0].error).toMatch(/not found/)
+    expect(parsed.pending).toHaveLength(0)
+  })
+
+  it("run with a missing status is treated as error, not pending", async () => {
+    const client = collectClient(
+      {
+        // run exists but has no status field
+        nostatus: {} as any,
+      },
+      {},
+    )
+    const res = await collect(client, {
+      runs: [
+        { runId: "nostatus", actorId: "a", datasetId: "dsX" },
+      ],
+    })
+    const parsed = JSON.parse(res.output)
+    expect(parsed.allDone).toBe(true)
+    expect(parsed.errors).toHaveLength(1)
+    expect(parsed.errors[0].error).toMatch(/no status/)
+    expect(parsed.pending).toHaveLength(0)
   })
 
   it("allDone is true when nothing is pending", async () => {

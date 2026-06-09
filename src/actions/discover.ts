@@ -1,5 +1,6 @@
 import type { ApifyClient } from "apify-client"
 import { asOutput, type ActionResult } from "./types.js"
+import { wrapExternalContent } from "../content.js"
 
 /**
  * `discover` — the agent's "I don't know yet" verb.
@@ -82,18 +83,11 @@ async function fetchSchema(client: ApifyClient, actorId: string): Promise<Action
   }
 
   const def = build.actorDefinition as Record<string, any> | undefined
-  // Preferred: structured input schema on the actor definition.
-  // Fallback: the deprecated stringified `build.inputSchema`.
-  let inputSchema: unknown = def?.input
-  if (inputSchema == null && typeof build.inputSchema === "string") {
-    try {
-      inputSchema = JSON.parse(build.inputSchema)
-    } catch {
-      inputSchema = build.inputSchema
-    }
-  }
+  // Use `actorDefinition.input` — the deprecated `build.inputSchema` string field is not supported.
+  const inputSchema: unknown = def?.input
 
-  const readme = clip(def?.readme, README_CLIP)
+  const raw = clip(def?.readme, README_CLIP)
+  const readme = raw ? wrapExternalContent(raw, actorId) : ""
 
   return asOutput({
     action: "discover",

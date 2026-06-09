@@ -53,10 +53,12 @@ describe("plugin registration", () => {
     expect(output.headers["Apify-User-Agent"]).toMatch(/^apify-kilocode-plugin\//)
   })
 
-  it("auth loader maps a stored api key into apifyToken", async () => {
+  it("auth method registers Apify API Token without a loader (token resolved via stored auth, not hook)", async () => {
     const hooks = await server(INPUT, { token: "apify_api_test" })
-    const bag = await hooks.auth!.loader!(async () => ({ type: "api", key: " key123\n" }) as any, {} as any)
-    expect(bag).toEqual({ apifyToken: "key123" })
+    // The `loader` property is absent — Kilo doesn't invoke loaders for tool plugins.
+    // Token resolution is handled by readStoredApiToken (direct file read of the auth store).
+    expect(hooks.auth!.loader).toBeUndefined()
+    expect(hooks.auth?.methods?.[0]).toMatchObject({ type: "api", label: "Apify API Token" })
   })
 
   it("explicit enabled:false registers nothing tool-facing", async () => {

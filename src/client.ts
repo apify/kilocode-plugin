@@ -28,7 +28,16 @@ export function normalizeSecretInput(value: string | undefined | null): string {
 export function resolveBaseUrl(override?: string): string {
   if (!override) return APIFY_BASE_URL
   const url = override.trim()
-  if (!url.startsWith(APIFY_BASE_URL)) {
+  const expected = new URL(APIFY_BASE_URL).origin
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new Error(
+      `Invalid Apify base URL: must start with "${APIFY_BASE_URL}" (got "${url}")`,
+    )
+  }
+  if (parsed.origin !== expected) {
     throw new Error(
       `Invalid Apify base URL: must start with "${APIFY_BASE_URL}" (got "${url}")`,
     )
