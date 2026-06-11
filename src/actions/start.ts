@@ -19,7 +19,17 @@ export async function start(
   }
 
   const input = args.input ?? {}
-  const run = (await client.actor(args.actorId).start(input)) as Record<string, any>
+
+  let run: Record<string, any>
+  try {
+    run = (await client.actor(args.actorId).start(input)) as Record<string, any>
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return asOutput({
+      action: "start",
+      error: `Failed to start Actor '${args.actorId}': ${message}`,
+    })
+  }
 
   const ref: RunRef = {
     runId: run.id,

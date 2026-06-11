@@ -2,7 +2,7 @@ import type { ApifyClient } from "apify-client"
 import { asOutput, type ActionResult, type RunRef } from "./types.js"
 import {
   TERMINAL_STATUSES,
-  truncateResults,
+  MAX_RESULT_CHARS,
   wrapExternalContent,
   externalContentMeta,
 } from "../content.js"
@@ -17,9 +17,11 @@ import {
  * batch — if you started five Actors and one died, you still get the other four.
  */
 
-type CompletedEntry = RunRef & { status: string; itemCount: number; items: string }
+type CompletedEntry = RunRef & { status: string; itemCount: number; totalCount: number; items: string; note?: string }
 type PendingEntry = RunRef & { status: string; pending: true }
 type ErrorEntry = RunRef & { status?: string; error: string }
+
+const MAX_ITEMS_PER_PAGE = 50
 
 async function collectOne(
   client: ApifyClient,
@@ -48,13 +50,49 @@ async function collectOne(
 
   // Prefer the run's live defaultDatasetId; fall back to the caller's ref.
   const datasetId: string = run?.defaultDatasetId ?? ref.datasetId
-  const page = await client.dataset(datasetId).listItems()
-  const items = page.items ?? []
-  const wrapped = wrapExternalContent(truncateResults(JSON.stringify(items, null, 2)), ref.actorId)
+
+  let allItems: unknown[] = []
+  let totalCount = 0
+  let offset = 0
+  let capped = false
+
+  while (true) {
+    const page = await client.dataset(datasetId).listItems({ limit: MAX_ITEMS_PER_PAGE, offset })
+    const batch = page.items ?? []
+    totalCount = page.total ?? 0
+
+    if (batch.length === 0) break
+
+    const merged = allItems.concat(batch)
+    const measure = JSON.stringify(merged, null, 2)
+    if (measure.length > MAX_RESULT_CHARS) {
+      capped = true
+      break
+    }
+
+    allItems = merged
+    offset += batch.length
+    if (offset >= totalCount) break
+  }
+
+  const itemCount = allItems.length
+  const serialized = JSON.stringify(allItems, null, 2)
+  const wrapped = wrapExternalContent(serialized, ref.actorId)
+
+  const note = capped
+    ? `Output capped at ${MAX_RESULT_CHARS.toLocaleString()} chars (${itemCount} of ${totalCount || "?"} items shown).`
+    : undefined
 
   return {
     kind: "completed",
-    entry: { ...ref, status, itemCount: items.length, items: wrapped },
+    entry: {
+      ...ref,
+      status,
+      itemCount,
+      totalCount: totalCount || itemCount,
+      items: wrapped,
+      ...(note ? { note } : {}),
+    },
   }
 }
 

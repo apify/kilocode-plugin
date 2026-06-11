@@ -166,6 +166,31 @@ describe("discover action", () => {
     const res = await discover(fakeClient({}), {})
     expect(JSON.parse(res.output).error).toMatch(/query.*actorId/)
   })
+
+  it("returns structured error when store search fails (network error)", async () => {
+    const client = fakeClient({
+      store: () => ({
+        list: async () => { throw new Error("Connection refused") },
+      }),
+    })
+    const res = await discover(client, { query: "amazon" })
+    const parsed = JSON.parse(res.output)
+    expect(parsed.error).toMatch(/Store search failed/)
+    expect(parsed.error).toMatch(/Connection refused/)
+  })
+
+  it("returns structured error when defaultBuild fetch fails (network error)", async () => {
+    const client = fakeClient({
+      actor: () => ({
+        defaultBuild: async () => { throw new Error("Network timeout") },
+      }),
+    })
+    const res = await discover(client, { actorId: "foo~bar" })
+    const parsed = JSON.parse(res.output)
+    expect(parsed.error).toMatch(/Failed to fetch schema/)
+    expect(parsed.error).toMatch(/Network timeout/)
+  })
+
 })
 
 describe("start action", () => {
@@ -190,6 +215,18 @@ describe("start action", () => {
     const res = await start(fakeClient({}), {})
     expect(JSON.parse(res.output).error).toMatch(/actorId/)
   })
+
+  it("returns structured error when Actor start fails", async () => {
+    const client = fakeClient({
+      actor: () => ({
+        start: async () => { throw new Error("Actor not found") },
+      }),
+    })
+    const res = await start(client, { actorId: "bad~slug" })
+    const parsed = JSON.parse(res.output)
+    expect(parsed.error).toMatch(/Failed to start Actor 'bad~slug'/)
+    expect(parsed.error).toMatch(/Actor not found/)
+  })
 })
 
 describe("collect action", () => {
@@ -204,7 +241,10 @@ describe("collect action", () => {
         },
       }),
       dataset: (id: string) => ({
-        listItems: async () => ({ items: datasets[id] ?? [] }),
+        listItems: async () => {
+          const items = datasets[id] ?? []
+          return { items, total: items.length }
+        },
       }),
     }
   }
@@ -294,6 +334,43 @@ describe("collect action", () => {
     expect(parsed.errors).toHaveLength(1)
     expect(parsed.errors[0].error).toMatch(/no status/)
     expect(parsed.pending).toHaveLength(0)
+  })
+
+  it("caps dataset when serialized size exceeds MAX_RESULT_CHARS", async () => {
+    // Create many large items so serialized JSON exceeds MAX_RESULT_CHARS quickly
+    const largeItems = Array.from({ length: 100 }, (_, i) => ({
+      index: i,
+      payload: "x".repeat(1000),
+    }))
+    const client = collectClient(
+      { ok: { status: "SUCCEEDED", defaultDatasetId: "dsLarge" } },
+      { dsLarge: largeItems },
+    )
+    const res = await collect(client, {
+      runs: [{ runId: "ok", actorId: "a", datasetId: "dsLarge" }],
+    })
+    const parsed = JSON.parse(res.output)
+    expect(parsed.completed).toHaveLength(1)
+    const entry = parsed.completed[0]
+    // Should be capped — 100 items × ~1k chars each > 50k
+    expect(entry.itemCount).toBeLessThan(100)
+    expect(entry.totalCount).toBe(100)
+    expect(entry.note).toMatch(/capped at/)
+    expect(entry.items).toContain("<<<EXTERNAL_UNTRUSTED_CONTENT>>>")
+  })
+
+  it("reports itemCount and totalCount for uncapped datasets", async () => {
+    const client = collectClient(
+      { ok: { status: "SUCCEEDED", defaultDatasetId: "ds" } },
+      { ds: [{ a: 1 }, { b: 2 }] },
+    )
+    const res = await collect(client, {
+      runs: [{ runId: "ok", actorId: "a", datasetId: "ds" }],
+    })
+    const entry = JSON.parse(res.output).completed[0]
+    expect(entry.itemCount).toBe(2)
+    expect(entry.totalCount).toBe(2)
+    expect(entry.note).toBeUndefined()
   })
 
   it("allDone is true when nothing is pending", async () => {

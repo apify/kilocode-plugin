@@ -27,7 +27,18 @@ function slug(username: string | undefined, name: string | undefined): string {
 
 /** Mode A — keyword search the Store, top 10 by relevance. */
 async function searchStore(client: ApifyClient, query: string): Promise<ActionResult> {
-  const page = await client.store().list({ search: query, limit: 10, sortBy: "relevance" })
+  let page: { items?: unknown[] }
+  try {
+    page = await client.store().list({ search: query, limit: 10, sortBy: "relevance" })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return asOutput({
+      action: "discover",
+      mode: "search",
+      query,
+      error: `Store search failed: ${message}`,
+    })
+  }
   const items = page.items ?? []
 
   if (items.length === 0) {
@@ -71,8 +82,19 @@ async function searchStore(client: ApifyClient, query: string): Promise<ActionRe
 
 /** Mode B — fetch an Actor's input schema + README from its default build. */
 async function fetchSchema(client: ApifyClient, actorId: string): Promise<ActionResult> {
-  const buildClient = await client.actor(actorId).defaultBuild()
-  const build = (await buildClient.get()) as Record<string, any> | undefined
+  let build: Record<string, any> | undefined
+  try {
+    const buildClient = await client.actor(actorId).defaultBuild()
+    build = (await buildClient.get()) as Record<string, any> | undefined
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return asOutput({
+      action: "discover",
+      mode: "schema",
+      actorId,
+      error: `Failed to fetch schema for '${actorId}': ${message}`,
+    })
+  }
   if (!build) {
     return asOutput({
       action: "discover",
