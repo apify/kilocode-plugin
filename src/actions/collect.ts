@@ -3,6 +3,7 @@ import { asOutput, type ActionResult, type RunRef } from "./types.js"
 import {
   TERMINAL_STATUSES,
   MAX_RESULT_CHARS,
+  truncateResults,
   wrapExternalContent,
   externalContentMeta,
 } from "../content.js"
@@ -64,19 +65,20 @@ async function collectOne(
     if (batch.length === 0) break
 
     const merged = allItems.concat(batch)
+    allItems = merged
     const measure = JSON.stringify(merged, null, 2)
     if (measure.length > MAX_RESULT_CHARS) {
       capped = true
       break
     }
 
-    allItems = merged
     offset += batch.length
     if (offset >= totalCount) break
   }
 
   const itemCount = allItems.length
-  const serialized = JSON.stringify(allItems, null, 2)
+  const raw = JSON.stringify(allItems, null, 2)
+  const serialized = capped ? truncateResults(raw) : raw
   const wrapped = wrapExternalContent(serialized, ref.actorId)
 
   const note = capped

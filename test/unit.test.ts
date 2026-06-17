@@ -241,9 +241,12 @@ describe("collect action", () => {
         },
       }),
       dataset: (id: string) => ({
-        listItems: async () => {
-          const items = datasets[id] ?? []
-          return { items, total: items.length }
+        listItems: async (opts?: { limit?: number; offset?: number }) => {
+          const all = datasets[id] ?? []
+          const limit = opts?.limit ?? all.length
+          const offset = opts?.offset ?? 0
+          const page = all.slice(offset, offset + limit)
+          return { items: page, total: all.length }
         },
       }),
     }
@@ -353,10 +356,35 @@ describe("collect action", () => {
     expect(parsed.completed).toHaveLength(1)
     const entry = parsed.completed[0]
     // Should be capped — 100 items × ~1k chars each > 50k
+    // Must have at least one page of items (not zero due to the reassignment bug)
+    expect(entry.itemCount).toBeGreaterThan(0)
     expect(entry.itemCount).toBeLessThan(100)
     expect(entry.totalCount).toBe(100)
     expect(entry.note).toMatch(/capped at/)
     expect(entry.items).toContain("<<<EXTERNAL_UNTRUSTED_CONTENT>>>")
+  })
+
+  it("returns items even when first page alone exceeds MAX_RESULT_CHARS (regression)", async () => {
+    // First page of 50 items each with 3k chars = ~150k JSON, well over 50k cap
+    const hugeItems = Array.from({ length: 50 }, (_, i) => ({
+      index: i,
+      payload: "x".repeat(3000),
+    }))
+    const client = collectClient(
+      { ok: { status: "SUCCEEDED", defaultDatasetId: "dsHuge" } },
+      { dsHuge: hugeItems },
+    )
+    const res = await collect(client, {
+      runs: [{ runId: "ok", actorId: "a", datasetId: "dsHuge" }],
+    })
+    const parsed = JSON.parse(res.output)
+    expect(parsed.completed).toHaveLength(1)
+    const entry = parsed.completed[0]
+    // Must have items — the bug would return 0
+    expect(entry.itemCount).toBeGreaterThan(0)
+    expect(entry.totalCount).toBe(50)
+    expect(entry.items).toContain("<<<EXTERNAL_UNTRUSTED_CONTENT>>>")
+    expect(entry.items).toContain("[…truncated]")
   })
 
   it("reports itemCount and totalCount for uncapped datasets", async () => {
