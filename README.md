@@ -1,13 +1,11 @@
 # Apify for Kilo
 
-Works with Kilo
-
-npm
+[![Works with Kilo](https://img.shields.io/badge/Works%20with-Kilo-blue)](https://kilo.ai)
+[![npm](https://img.shields.io/npm/v/@apify/kilocode-plugin)](https://www.npmjs.com/package/@apify/kilocode-plugin)
 
 `@apify/kilocode-plugin` gives Kilo Code agents one native tool - **`apify`** - that can run any of Apify's 30,000+ web-scraping and automation **Actors** and bring the results back into the conversation. Scrape Google Maps, Instagram, Amazon, TikTok, search the web, crawl a site, or invoke any Actor by slug - without a tool-per-site explosion.
 
 > Community integration. "Apify for Kilo" is built and maintained by Apify and is not officially affiliated with Kilo.
-> 
 
 ## Install
 
