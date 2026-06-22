@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@apify/kilocode-plugin",
+  "version": "0.1.0",
+  "description": "Apify for Kilo — run any of 20,000+ Apify Actors as a native Kilo Code agent tool.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "keywords": [
+    "apify",
+    "kilocode",
+    "kilo",
+    "opencode",
+    "plugin",
+    "web-scraping",
+    "agent",
+    "ai"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apify/kilocode-plugin.git"
+  },
+  "homepage": "https://github.com/apify/kilocode-plugin#readme",
+  "bugs": {
+    "url": "https://github.com/apify/kilocode-plugin/issues"
+  },
+  "exports": {
+    "./server": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "config": {
+        "token": "{env:APIFY_TOKEN}"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@apify/consts": "^2.0.0",
+    "apify-client": "^2.12.0"
+  },
+  "devDependencies": {
+    "@kilocode/plugin": "^7.3.18",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0",
+    "zod": "^3.23.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
